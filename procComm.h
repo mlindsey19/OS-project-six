@@ -12,7 +12,7 @@
 #include <mqueue.h>
 #include <stdio.h>
 
-#define BUFF_sz 64
+#define BUFF_sz 32
 
 typedef struct {
     unsigned int sec;
@@ -29,23 +29,45 @@ typedef struct {
 
 typedef struct {
     int hasBeenRead; // 1 -> yes and ready to be replaced
-    int toFrom; // 0-> to child 1-> from child
+    char toFrom; // 0-> to child 1-> from child
     char buf[BUFF_sz];
 }Msg;
 
 typedef struct {
+    int dirty;
+    int refByte;
+    int occupied;
+}Frame;
+typedef struct {
+    int dirty;
+    int present;
+}Page;
+typedef struct {
+    int size;
+    Page pages[BUFF_sz];
+    int frames[BUFF_sz];
+}PageTable;
+
+
+typedef struct {
     pid_t pid; // for send to specific child
-    Msg mailbox1;
-    Msg mailbox2;
+    Msg mail;
 }MsgQue;
 
+enum mailBox{
+    parent = 'p',
+    child = 'c',
+    true = 1,
+    false =0
+};
 
 #define BUFF_msgque sizeof( MsgQue )
-#define MAX_MSGS 64
 
-#define PLIMIT 20
+#define PLIMIT 18
 #define BILLION 1000000000
-#define KEY_PATH "keys_tmp"
+
+#define KEY_PATH "/bin"
+
 #define SEM_0 "/sem_0"
 #define SEM_1 "/sem_1"
 #define SEM_2 "/sem_2"
@@ -77,8 +99,6 @@ typedef struct {
 void deleteMsgQueMem( char * paddr );
 char * getMsgQueMem();
 
-sem_t * openSemAloRes();
-sem_t * openSemResDesc();
 
 char * getClockMem();
 void deleteClockMem( char * paddr );
@@ -89,6 +109,7 @@ void deleteSem() ;
 
 
 
+sem_t * openSem();
 sem_t * openSem_0();
 sem_t * openSem_1();
 sem_t * openSem_2();

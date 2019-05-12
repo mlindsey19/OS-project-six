@@ -8,10 +8,13 @@
 #include "procComm.h"
 
 
-static void communication();
 //static void getMSG();
 //static void sendMSG( int );
-//static void initUserParams();
+static void initUserParams();
+static void sendMsg();
+
+static int terminateMaybe();
+
 //void askForMore();
 //void giveUpSome();
 //static void nextResTime();
@@ -24,31 +27,19 @@ char * pcbpaddr;
 char * msgqueaddr;
 
 //communication
-static SimClock * simClock;
-static PCB * pcb;
-
-static sem_t * sem_0;
-static sem_t * sem_1;
-static sem_t * sem_2;
-static sem_t * sem_3;
-static sem_t * sem_4;
-static sem_t * sem_5;
-static sem_t * sem_6;
-static sem_t * sem_7;
-static sem_t * sem_8;
-static sem_t * sem_9;
-static sem_t * sem_10;
-static sem_t * sem_11;
-static sem_t * sem_12;
-static sem_t * sem_13;
-static sem_t * sem_14;
-static sem_t * sem_15;
-static sem_t * sem_16;
-static sem_t * sem_17;
-
+static void communication();
 static MsgQue * msgQue;
 
+static SimClock * simClock;
+static PCB * pcb;
+static int virtualPid;
+static int myPid;
+static void checkMsg();
 
+
+static sem_t * sem[PLIMIT];
+
+int termCond;
 
 
 //// resource vectors
@@ -71,13 +62,64 @@ int main() {
     //   signal(SIGUSR1, sigHandle);
     //signal(SIGUSR2, sigHandle);
     communication();
+    initUserParams();
 //    initUserParams();
     printf("hi %i\n", getpid());
+termCond =1;
+    int checkTerm = 3;
+while(termCond) {
+    sendMsg();
+    checkMsg();
+    if (!checkTerm--){
+        termCond = terminateMaybe();
+        checkTerm = 2;
+    }
 
-    sleep(getpid()%3 + 1);
 
-    printf("bye %i\n", getpid());
+}
+    printf("bye %i - %i\n", myPid, virtualPid);
     exit(19);
+}
+static void initUserParams(){
+    myPid = getpid();
+
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    srand( (time_t )ts.tv_nsec ^ myPid  );
+    int i;
+
+    for ( i =0 ; i < PLIMIT; i ++){
+        if ( pcb[i].pid == myPid){
+            virtualPid = pcb[i].vpid;
+            break;
+        }
+    }
+
+
+//    for ( i = 0; i <20 ; i++ ) {
+//        max = ( resDesc[ i ].total * 66 ) / 100;
+//        if(max <= 0)
+//            maxRequestVector[i] = 0;
+//        else if (max == 1)
+//            maxRequestVector[ i ] =  ( rand() % 2);
+//        else
+//            maxRequestVector[ i ] =  ( rand() % ( max + 1 ) ) ;
+//        maxRequestVector [ i ] = ( resDesc[i].sharable ) ? resDesc[i].total : maxRequestVector[i];
+//        acquiredVector[ i ] = 0;
+//        releaseVector [ i ] = 0;
+//        requestVector [ i ] = 0;
+//        assert( maxRequestVector[i] >= 0 && maxRequestVector[i] <= 10 && "created too many resources");
+//
+//    }
+//    requestOrReleaseRate = BILLION ;
+
+//    minTimeAlive.sec = 5 +  simClock->sec;
+//    minTimeAlive.ns = 0;// ( rand() % BILLION )  + simClock->ns;
+//    //printf("%i - %is %ins \n ",getpid(), minTimeAlive.sec, minTimeAlive.ns  );
+//
+//    nextRes.sec = simClock->sec;
+//    nextRes.ns = simClock->ns;
+//    isWaitingForResources =0 ; //false
 }
 static void communication(){
     clockaddr = getClockMem();
@@ -86,24 +128,24 @@ static void communication(){
     pcbpaddr = getPCBMem();
     pcb = ( PCB * ) pcbpaddr;
 
-    sem_0 = openSem_0();
-    sem_1 = openSem_1();
-    sem_2 = openSem_2();
-    sem_3 = openSem_3();
-    sem_4 = openSem_4();
-    sem_5 = openSem_5();
-    sem_6 = openSem_6();
-    sem_7 = openSem_7();
-    sem_8 = openSem_8();
-    sem_9 = openSem_9();
-    sem_10 = openSem_10();
-    sem_11 = openSem_11();
-    sem_12 = openSem_12();
-    sem_13 = openSem_13();
-    sem_14 = openSem_14();
-    sem_15 = openSem_15();
-    sem_16 = openSem_16();
-    sem_17 = openSem_17();
+    sem[0] = openSem_0();
+    sem[1]= openSem_1();
+    sem[2]= openSem_2();
+    sem[3]= openSem_3();
+    sem[4]= openSem_4();
+    sem[5]= openSem_5();
+    sem[6]= openSem_6();
+    sem[7]= openSem_7();
+    sem[8]= openSem_8();
+    sem[9]= openSem_9();
+    sem[10] = openSem_10();
+    sem[11] = openSem_11();
+    sem[12] = openSem_12();
+    sem[13] = openSem_13();
+    sem[14] = openSem_14();
+    sem[15] = openSem_15();
+    sem[16] = openSem_16();
+    sem[17] = openSem_17();
 
     msgqueaddr = getMsgQueMem();
     msgQue = ( MsgQue *) msgqueaddr;
@@ -112,7 +154,74 @@ static void communication(){
 //    sigemptyset(&sigset);
 //    sigaddset(&sigset, SIGUSR1);
 //    sigaddset(&sigset, SIGUSR2);
+}
 
+static void checkMsg() {
+    MsgQue * msg = &msgQue[virtualPid];
+    int pageValid = 0;
+    while(!pageValid)
+        if( !sem_trywait( sem[ virtualPid ] ) ) {
+ //           printf("c - enter crit to check\n");
+
+            char buf[ BUFF_sz ];
+            memset( buf, 0, BUFF_sz );
+
+            if ( msg->mail.toFrom == parent && msg->mail.hasBeenRead == false) {
+
+                strncpy( buf, msg->mail.buf, ( BUFF_sz - 1 ) );
+
+                msg->mail.hasBeenRead = true;
+
+
+            }
+            if ( strlen( buf ) )
+                printf("child: Received message: %s\n", buf);
+            //  printf("c %i - done waiting  \n", getpid());
+            pageValid=1;
+            sem_post( sem[ virtualPid ] );
+        }
+
+//    printf("c - leave crit to get\n");
+//leave critical
+
+}
+static void sendMsg() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    srand( (time_t ) ts.tv_nsec ^ getpid()  );
+    MsgQue * msg = &msgQue[virtualPid];
+    int sent = 0;
+    while( !sent )
+        if( !sem_trywait( sem[ virtualPid ] ) ) {
+            printf("c - enter crit to send\n");
+
+            int request = rand()%30;
+            int rw = rand()%2;
+            char buf[BUFF_sz - 1];
+            memset(buf, 0, BUFF_sz - 1);
+
+            sprintf(buf, "%i %i", request, rw);
+
+            msgQue[virtualPid].mail.hasBeenRead = false;
+            msgQue[virtualPid].mail.toFrom = child; //sending
+            strncpy(msgQue[virtualPid].mail.buf, buf, (BUFF_sz));
+
+            sent=1;
+            sem_post( sem[ virtualPid ] );
+        }
+
+    printf("c - leave crit to send\n");
+//leave critical
+
+}
+
+static int terminateMaybe(){
+    myPid = getpid();
+
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    srand( (time_t )ts.tv_nsec ^ myPid  );
+    return rand()%2;
 }
 
 
@@ -147,37 +256,6 @@ static void communication(){
 //    }
 //}
 //
-//static void initUserParams(){
-//
-//    struct timespec ts;
-//    clock_gettime(CLOCK_MONOTONIC, &ts);
-//    srand( (time_t )ts.tv_nsec ^ getpid()  );
-//    int i, max;
-//    for ( i = 0; i <20 ; i++ ) {
-//        max = ( resDesc[ i ].total * 66 ) / 100;
-//        if(max <= 0)
-//            maxRequestVector[i] = 0;
-//        else if (max == 1)
-//            maxRequestVector[ i ] =  ( rand() % 2);
-//        else
-//            maxRequestVector[ i ] =  ( rand() % ( max + 1 ) ) ;
-//        maxRequestVector [ i ] = ( resDesc[i].sharable ) ? resDesc[i].total : maxRequestVector[i];
-//        acquiredVector[ i ] = 0;
-//        releaseVector [ i ] = 0;
-//        requestVector [ i ] = 0;
-//        assert( maxRequestVector[i] >= 0 && maxRequestVector[i] <= 10 && "created too many resources");
-//
-//    }
-//    requestOrReleaseRate = BILLION ;
-//
-//    minTimeAlive.sec = 5 +  simClock->sec;
-//    minTimeAlive.ns = 0;// ( rand() % BILLION )  + simClock->ns;
-//    //printf("%i - %is %ins \n ",getpid(), minTimeAlive.sec, minTimeAlive.ns  );
-//
-//    nextRes.sec = simClock->sec;
-//    nextRes.ns = simClock->ns;
-//    isWaitingForResources =0 ; //false
-//}
 //static void appendAcquiredVector(char * buf){
 //    int temp;
 //    int i;

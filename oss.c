@@ -8,17 +8,15 @@
 #include "procComm.h"
 
 
-//static void sigHandle(int);
-//static void childHandle(int);
-//static void sendMSG( pid_t, int );
+static void sigHandle(int);
+static void childHandle(int);
 //static void createResources();
-//static void checkMSG();
 //static void giveResources();
 //static void deadlock();
 
 static pid_t pids[ PLIMIT ];
-static int processLimit = 20;
-static int activeLimit = 18;
+static int processLimit = PLIMIT;
+static int activeLimit = 4;
 static int active = 0;
 static int total = 0;
 static int maxTimeBetweenNewProcsSecs = 5;
@@ -30,6 +28,7 @@ static void communication();
 static void generateProc();
 static void nextProcTime();
 static int getIndexFromPid(int);
+static void checkMSG();
 
 
 
@@ -45,24 +44,11 @@ const char path[] = "./user";
 static SimClock * simClock;
 static PCB * pcb;
 static MsgQue * msgQue;
-static sem_t * sem_0;
-static sem_t * sem_1;
-static sem_t * sem_2;
-static sem_t * sem_3;
-static sem_t * sem_4;
-static sem_t * sem_5;
-static sem_t * sem_6;
-static sem_t * sem_7;
-static sem_t * sem_8;
-static sem_t * sem_9;
-static sem_t * sem_10;
-static sem_t * sem_11;
-static sem_t * sem_12;
-static sem_t * sem_13;
-static sem_t * sem_14;
-static sem_t * sem_15;
-static sem_t * sem_16;
-static sem_t * sem_17;
+static sem_t * sem[PLIMIT];
+static void initVars();
+static void sendMSG(  int );
+
+
 
 // vectors
 //static int aboutToAllocate [ 20 ];
@@ -76,14 +62,14 @@ static sem_t * sem_17;
 
 
 int main() {
-    total = 0;
 
- //   signal( SIGINT, sigHandle );
+    signal( SIGINT, sigHandle );
     //   signal( SIGCHLD, childHandle );
 //    signal( SIGALRM, sigHandle );
     // ualarm(900000,0);
-      alarm(5);
+    alarm(10);
     communication();
+    initVars();
 
     nextProcTime();
     while(1){
@@ -96,11 +82,9 @@ int main() {
             generateProc();
             printf("p -proc gen\n");
         }
-        //checkMSG();
+        checkMSG();
 
         childrenStatus();
-
-
 
     }
 
@@ -108,22 +92,12 @@ int main() {
     return 0;
 }
 
-//static void printReqArray() {
-//    int i, j;
-//    for (i = 0; i < processLimit; i++) {
-//        printf("%i -> ", pids[i]);
-//
-//        for (j = 0; j < 20; j++) {
-//            printf("%i ", requests[i][j]);
-//        }
-//        printf("\n");
-//    }
-//}
 static void deleteMemory() {
-    deleteClockMem(clockaddr);
+    childrenStatus();
     deletePCBMem(pcbpaddr);
     deleteSem();
     deleteMsgQueMem(msgqueaddr);
+    deleteClockMem(clockaddr);
 }
 static void increment(){
     struct timespec ts;
@@ -195,8 +169,8 @@ static void generateProc() {
     if ( pids[ total ] == 0 )
         execl( path, user, NULL );
 
-    pcb->pid = pids[total];
-    pcb->vpid = total;
+    pcb[total].pid = pids[total];
+    pcb[total].vpid = total;
 
     active++;
     total++;
@@ -204,11 +178,29 @@ static void generateProc() {
 
 
 }
+static void initVars(){
+    simClock->sec = 0;
+    simClock->ns = 0;
+    total = 0;
+    int i;
+    for (i=0;i< PLIMIT; i++){
+        msgQue[i].pid = 0;
+        //mail 1
+        msgQue[i].mail.hasBeenRead = true;
+        msgQue[i].mail.toFrom = parent;
+        memset( msgQue[i].mail.buf, 0, BUFF_sz);
+
+
+        //PCB
+        pcb[i].pid = -1;
+        pcb[i].vpid = -1;
+
+    }
+}
 static void communication(){
     clockaddr = getClockMem();
     simClock = ( SimClock * ) clockaddr;
-    simClock->sec = 0;
-    simClock->ns = 0;
+
 
 
     pcbpaddr = getPCBMem();
@@ -219,24 +211,24 @@ static void communication(){
     msgQue = ( MsgQue *) msgqueaddr;
 
 
-    sem_0 = openSem_0();
-    sem_1 = openSem_1();
-    sem_2 = openSem_2();
-    sem_3 = openSem_3();
-    sem_4 = openSem_4();
-    sem_5 = openSem_5();
-    sem_6 = openSem_6();
-    sem_7 = openSem_7();
-    sem_8 = openSem_8();
-    sem_9 = openSem_9();
-    sem_10 = openSem_10();
-    sem_11 = openSem_11();
-    sem_12 = openSem_12();
-    sem_13 = openSem_13();
-    sem_14 = openSem_14();
-    sem_15 = openSem_15();
-    sem_16 = openSem_16();
-    sem_17 = openSem_17();
+    sem[0] = openSem_0();
+    sem[1]= openSem_1();
+    sem[2]= openSem_2();
+    sem[3]= openSem_3();
+    sem[4]= openSem_4();
+    sem[5]= openSem_5();
+    sem[6]= openSem_6();
+    sem[7]= openSem_7();
+    sem[8]= openSem_8();
+    sem[9]= openSem_9();
+    sem[10] = openSem_10();
+    sem[11] = openSem_11();
+    sem[12] = openSem_12();
+    sem[13] = openSem_13();
+    sem[14] = openSem_14();
+    sem[15] = openSem_15();
+    sem[16] = openSem_16();
+    sem[17] = openSem_17();
 
 
 }
@@ -247,12 +239,74 @@ static int getIndexFromPid(int pid){
             return i;
     return 0;
 }
-//static void sigHandle( int cc ){
-//    cleanSHM();
-//}
-//static void childHandle( int cc ){
-//    childrenStatus();
-//}
+static void sendMSG( int pidIndex ) {
+    //enter critical
+    pid_t pid = pids[ pidIndex ];
+    int trySend = 5;
+    while (!trySend--) {
+        if (pid) {
+            if ( !sem_trywait( sem[ pidIndex ] ) ) {
+                printf("p    -    enter crit to send to %i\n", pid);
+
+                char buf[BUFF_sz - 1];
+                memset(buf, 0, BUFF_sz - 1);
+
+                sprintf(buf, "%i", 1);
+
+                msgQue[ pidIndex ].mail.hasBeenRead = false;
+                msgQue[ pidIndex ].mail.toFrom = parent; //sending
+                strncpy( msgQue[ pidIndex ].mail.buf, buf, BUFF_sz );
+                trySend = 0;
+                sem_post( sem[ pidIndex ] );
+
+                //leave critical
+                printf("Parent: Send message...%s :%i \n", buf, pid);
+            }
+        }
+    }
+}
+static void checkMSG(){
+    int aRequest = 0;
+    //enter critical
+ //   printf("p - try enter crit to check\n");
+    int i,pid;
+    for (i =0; i < PLIMIT;i++){
+        pid = pids[i];
+        if ( !sem_trywait( sem[ i ] ) ) {
+ //           printf("p    -    enter crit to check to %i\n", pid);
+
+            char buf[BUFF_sz - 1];
+            memset(buf, 0, BUFF_sz - 1);
+
+            MsgQue * msg = &msgQue[i];
+
+            if (msg->mail.toFrom == child && msg->mail.hasBeenRead == false) {
+
+                strncpy( buf, msg->mail.buf, ( BUFF_sz - 1 ) );
+                msg->mail.hasBeenRead = true;
+                aRequest =1;
+            }
+
+            printf("parent: Received message: %s - %i\n", buf, pids[i]);
+
+            sem_post( sem[ i ] );
+   //         printf("p - leave crit after check\n");
+            if(aRequest){
+                sendMSG( i );
+                aRequest=0;
+            }
+
+
+            //leave critical
+        }
+    }
+}
+static void sigHandle( int cc ){
+    cleanSHM();
+}
+static void childHandle( int cc ){
+    childrenStatus();
+}
 //static void adjustSharable(){
 //    int i;
 //    for ( i = 0; i < 20; i++  ) {
@@ -274,46 +328,6 @@ static int getIndexFromPid(int pid){
 //    adjustSharable();
 //}
 //
-//static void sendMSG( pid_t pid, int fl ){
-//    //enter critical
-//    //   printf("p - try enter crit to send\n");
-//    if(pid)
-//        if (!sem_trywait(semMsgA)) {
-//
-//            char buf[BUFF_sz - 1];
-//            memset(buf, 0, BUFF_sz - 1);
-//            int i;
-//
-//            for (i = 0; i < 20; i++) {
-//                sprintf(buf, "%s%d ", buf, aboutToAllocate[i]);
-//            }
-//
-//            //       printf("p    -    enter crit to send\n");
-//
-//            for (i = 0; i < MAX_MSGS; i++) {
-//                if (msgQueA[i].hasBeenRead) {
-//                    memset(msgQueA[i].buf, 0, BUFF_sz);
-//                    strcpy(msgQueA[i].buf, buf);
-//                    msgQueA[i].hasBeenRead = 0; // has not been read
-//                    msgQueA[i].rra =  0 - fl;
-//                    msgQueA[i].pid = pid;
-//                    if(!fl)
-//                    adjustResVectors(pid);
-//             //       printf("p - sig %u\n", pid);
-//               //     kill(pid,SIGUSR1);
-//                    break;
-//                }
-//            }
-//
-//
-//            sem_post(semMsgA);
-//
-//            //   printf("p - leave crit to send\n");
-//
-//            //leave critical
-//      //      printf("Parent: Send message...%s \n", buf);
-//        }
-//}
 //
 ////static void printReqAlloAvail(pid_t pid){
 ////    int i, j;

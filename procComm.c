@@ -5,7 +5,7 @@
 #include "procComm.h"
  enum shmkeyID{
     clockshmkey = 'a',
-    resdescshmkey = 'r',
+    pcbshmkey = 'r',
     msgqueshmkey = 'm',
 };
 
@@ -16,7 +16,7 @@ char * getMsgQueMem(){
         perror("IPC error: ftok");
     }
     char * paddr;
-    int shmid = shmget ( shmkey, MAX_MSGS * PLIMIT, PERM | IPC_CREAT );
+    int shmid = shmget ( shmkey, PLIMIT * BUFF_msgque , PERM | IPC_CREAT );
 
     if ( shmid == -1 )
         perror( "msgque get mem - error shmid" );
@@ -33,7 +33,7 @@ void deleteMsgQueMem( char * paddr ){
         perror("IPC error: ftok");
     }
 
-    int shmid = shmget ( shmkey, MAX_MSGS * PLIMIT, PERM );
+    int shmid = shmget ( shmkey, PLIMIT * BUFF_msgque, PERM );
 
     shmctl(shmid, IPC_RMID, NULL);
 
@@ -152,11 +152,11 @@ void deleteClockMem( char * paddr ){
 char * getPCBMem(){
     key_t shmkey;
 
-    if ((shmkey = ftok( KEY_PATH , resdescshmkey ) ) == (key_t) -1) {
+    if ((shmkey = ftok( KEY_PATH , pcbshmkey ) ) == (key_t) -1) {
         perror("IPC error: ftok");
     }
     char * paddr;
-    int shmid = shmget ( shmkey, 20 * BUFF_pcb, PERM | IPC_CREAT );
+    int shmid = shmget ( shmkey,  PLIMIT * BUFF_pcb , PERM | IPC_CREAT );
     if ( shmid == -1 )
         perror( "error shmid  pcb" );
 
@@ -167,10 +167,10 @@ char * getPCBMem(){
 void deletePCBMem( char * paddr ){
     key_t shmkey;
 
-    if ((shmkey = ftok( KEY_PATH , resdescshmkey ) ) == (key_t) -1) {
+    if ((shmkey = ftok( KEY_PATH , pcbshmkey ) ) == (key_t) -1) {
         perror("IPC error: ftok");
     }
-    int shmid = shmget ( shmkey, BUFF_pcb, PERM  );
+    int shmid = shmget ( shmkey,  PLIMIT * BUFF_pcb, PERM  );
 
     shmctl(shmid, IPC_RMID, NULL);
 

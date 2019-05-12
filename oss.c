@@ -15,8 +15,8 @@ static void childHandle(int);
 //static void deadlock();
 
 static pid_t pids[ PLIMIT ];
-static int processLimit = PLIMIT;
-static int activeLimit = 4;
+static int processLimit = 18;
+static int activeLimit = 11;
 static int active = 0;
 static int total = 0;
 static int maxTimeBetweenNewProcsSecs = 5;
@@ -48,6 +48,11 @@ static sem_t * sem[PLIMIT];
 static void initVars();
 static void sendMSG(  int );
 
+//table
+#define TABLESZ 256
+Frame frameTable[ TABLESZ ];
+PageTable pageTable[PLIMIT];
+
 
 
 // vectors
@@ -67,7 +72,7 @@ int main() {
     //   signal( SIGCHLD, childHandle );
 //    signal( SIGALRM, sigHandle );
     // ualarm(900000,0);
-    alarm(10);
+ //   alarm(10);
     communication();
     initVars();
 
@@ -92,6 +97,200 @@ int main() {
     return 0;
 }
 
+
+static void initVars(){
+    simClock->sec = 0;
+    simClock->ns = 0;
+    total = 0;
+    int i,j;
+    for (i=0;i< processLimit; i++){
+        msgQue[i].pid = 0;
+        //mail
+        msgQue[i].mail.hasBeenRead = true;
+        msgQue[i].mail.toFrom = parent;
+        memset( msgQue[i].mail.buf, 0, BUFF_sz);
+
+        //PCB
+        pcb[i].pid = -1;
+        pcb[i].vpid = -1;
+
+        //pagetable
+        for ( j = 0; j < BUFF_sz; j++ ) {
+            pageTable[i].pages[j].dirty = false;
+            pageTable[i].pages[j].present = false;
+            pageTable[i].frames[j] =  -1;
+        }
+    }
+    for (i = 0; i < TABLESZ; i++){
+        frameTable[i].dirty = false;
+        frameTable[i].occupied = false;
+        frameTable[i].refByte = 0; //add 128, shift >> 1
+    }
+}
+static void communication(){
+    clockaddr = getClockMem();
+    simClock = ( SimClock * ) clockaddr;
+
+
+
+    pcbpaddr = getPCBMem();
+    pcb = ( PCB * ) pcbpaddr;
+
+
+    msgqueaddr = getMsgQueMem();
+    msgQue = ( MsgQue *) msgqueaddr;
+
+
+    sem[0] = openSem_0();
+    sem[1]= openSem_1();
+    sem[2]= openSem_2();
+    sem[3]= openSem_3();
+    sem[4]= openSem_4();
+    sem[5]= openSem_5();
+    sem[6]= openSem_6();
+    sem[7]= openSem_7();
+    sem[8]= openSem_8();
+    sem[9]= openSem_9();
+    sem[10] = openSem_10();
+    sem[11] = openSem_11();
+    sem[12] = openSem_12();
+    sem[13] = openSem_13();
+    sem[14] = openSem_14();
+    sem[15] = openSem_15();
+    sem[16] = openSem_16();
+    sem[17] = openSem_17();
+
+
+}
+static int getIndexFromPid(int pid){
+    int i;
+    for ( i = 0; i < PLIMIT; i++)
+        if ( pid == pids[ i ] )
+            return i;
+    return 0;
+}
+static void sendMSG( int pidIndex ) {
+    //enter critical
+    pid_t pid = pids[ pidIndex ];
+    int trySend = 50;
+    while (trySend--) {
+        if (pid) {
+            if ( !sem_trywait( sem[ pidIndex ] ) ) {
+         //       printf("p    -    enter crit to send to %i\n", pid);
+
+                char buf[BUFF_sz - 1];
+                memset(buf, 0, BUFF_sz - 1);
+
+                sprintf(buf, "%i", 1);
+
+                msgQue[ pidIndex ].mail.hasBeenRead = false;
+                msgQue[ pidIndex ].mail.toFrom = parent; //sending
+                strncpy( msgQue[ pidIndex ].mail.buf, buf, BUFF_sz );
+                trySend = 0;
+                sem_post( sem[ pidIndex ] );
+
+                //leave critical
+                printf("Parent: Send message...%s :%i \n", buf, pid);
+            }
+        }
+    }
+}
+
+
+static void frameCheck( char * buf, int idx ){
+    int page, rw;
+    sscanf(buf,"%i %i", &page, &rw);
+
+    PageTable * pTab = &pageTable[idx];
+    Page * pg = &pageTable[idx].pages[page];
+    int * fr = &pTab->frames[page];
+    //is page present
+    if( pg->present == true){
+        frameTable[ *fr ].refByte += 128;
+        pg->dirty = ( rw ) ? 1 : pg->dirty;
+
+    } else {
+
+
+        printf("Page fault   -----    -----   -----\n");
+        // find unoccupied
+        int i,o;
+        for (i = o = 0; i < TABLESZ; i++) {
+            if (frameTable[i].occupied == false) {
+                frameTable[i].occupied = true;
+                frameTable[i].refByte += 128;
+
+                pg->present = true;
+                *fr = i;
+                o=1;
+                sendMSG( idx );
+
+                break;
+            }
+        }
+
+        if(!o);
+
+
+
+    }
+
+    //add page table reference
+
+
+
+}
+
+static void checkMSG(){
+    int aRequest = 0;
+    //enter critical
+    //   printf("p - try enter crit to check\n");
+    int i,pid;
+    for (i =0; i < processLimit ;i++){
+        pid = pids[i];
+        if ( !sem_trywait( sem[ i ] ) ) {
+            //           printf("p    -    enter crit to check to %i\n", pid);
+
+            char buf[BUFF_sz - 1];
+            memset(buf, 0, BUFF_sz - 1);
+
+            MsgQue * msg = &msgQue[ i ];
+
+            if (msg->mail.toFrom == child && msg->mail.hasBeenRead == false) {
+
+                strncpy(buf, msg->mail.buf, (BUFF_sz - 1));
+                msg->mail.hasBeenRead = true;
+                aRequest = 1;
+
+                printf("parent: Received message: %s - %i\n", buf, pid);
+            }
+            sem_post( sem[ i ] );
+            //         printf("p - leave crit after check\n");
+            if(aRequest){
+                frameCheck(buf, i);
+                aRequest=0;
+            }
+
+
+            //leave critical
+        }
+    }
+}
+
+
+
+
+
+
+
+
+static void sigHandle( int cc ){
+    cleanSHM();
+}
+static void childHandle( int cc ){
+    childrenStatus();
+}
+
 static void deleteMemory() {
     childrenStatus();
     deletePCBMem(pcbpaddr);
@@ -112,7 +311,6 @@ static void increment(){
 
 
 }
-
 
 void cleanSHM(){
     int i;
@@ -177,135 +375,6 @@ static void generateProc() {
     nextProcTime();
 
 
-}
-static void initVars(){
-    simClock->sec = 0;
-    simClock->ns = 0;
-    total = 0;
-    int i;
-    for (i=0;i< PLIMIT; i++){
-        msgQue[i].pid = 0;
-        //mail 1
-        msgQue[i].mail.hasBeenRead = true;
-        msgQue[i].mail.toFrom = parent;
-        memset( msgQue[i].mail.buf, 0, BUFF_sz);
-
-
-        //PCB
-        pcb[i].pid = -1;
-        pcb[i].vpid = -1;
-
-    }
-}
-static void communication(){
-    clockaddr = getClockMem();
-    simClock = ( SimClock * ) clockaddr;
-
-
-
-    pcbpaddr = getPCBMem();
-    pcb = ( PCB * ) pcbpaddr;
-
-
-    msgqueaddr = getMsgQueMem();
-    msgQue = ( MsgQue *) msgqueaddr;
-
-
-    sem[0] = openSem_0();
-    sem[1]= openSem_1();
-    sem[2]= openSem_2();
-    sem[3]= openSem_3();
-    sem[4]= openSem_4();
-    sem[5]= openSem_5();
-    sem[6]= openSem_6();
-    sem[7]= openSem_7();
-    sem[8]= openSem_8();
-    sem[9]= openSem_9();
-    sem[10] = openSem_10();
-    sem[11] = openSem_11();
-    sem[12] = openSem_12();
-    sem[13] = openSem_13();
-    sem[14] = openSem_14();
-    sem[15] = openSem_15();
-    sem[16] = openSem_16();
-    sem[17] = openSem_17();
-
-
-}
-static int getIndexFromPid(int pid){
-    int i;
-    for ( i = 0; i < PLIMIT; i++)
-        if ( pid == pids[ i ] )
-            return i;
-    return 0;
-}
-static void sendMSG( int pidIndex ) {
-    //enter critical
-    pid_t pid = pids[ pidIndex ];
-    int trySend = 5;
-    while (!trySend--) {
-        if (pid) {
-            if ( !sem_trywait( sem[ pidIndex ] ) ) {
-                printf("p    -    enter crit to send to %i\n", pid);
-
-                char buf[BUFF_sz - 1];
-                memset(buf, 0, BUFF_sz - 1);
-
-                sprintf(buf, "%i", 1);
-
-                msgQue[ pidIndex ].mail.hasBeenRead = false;
-                msgQue[ pidIndex ].mail.toFrom = parent; //sending
-                strncpy( msgQue[ pidIndex ].mail.buf, buf, BUFF_sz );
-                trySend = 0;
-                sem_post( sem[ pidIndex ] );
-
-                //leave critical
-                printf("Parent: Send message...%s :%i \n", buf, pid);
-            }
-        }
-    }
-}
-static void checkMSG(){
-    int aRequest = 0;
-    //enter critical
- //   printf("p - try enter crit to check\n");
-    int i,pid;
-    for (i =0; i < PLIMIT;i++){
-        pid = pids[i];
-        if ( !sem_trywait( sem[ i ] ) ) {
- //           printf("p    -    enter crit to check to %i\n", pid);
-
-            char buf[BUFF_sz - 1];
-            memset(buf, 0, BUFF_sz - 1);
-
-            MsgQue * msg = &msgQue[i];
-
-            if (msg->mail.toFrom == child && msg->mail.hasBeenRead == false) {
-
-                strncpy( buf, msg->mail.buf, ( BUFF_sz - 1 ) );
-                msg->mail.hasBeenRead = true;
-                aRequest =1;
-            }
-
-            printf("parent: Received message: %s - %i\n", buf, pids[i]);
-
-            sem_post( sem[ i ] );
-   //         printf("p - leave crit after check\n");
-            if(aRequest){
-                sendMSG( i );
-                aRequest=0;
-            }
-
-
-            //leave critical
-        }
-    }
-}
-static void sigHandle( int cc ){
-    cleanSHM();
-}
-static void childHandle( int cc ){
-    childrenStatus();
 }
 //static void adjustSharable(){
 //    int i;

@@ -65,18 +65,18 @@ int main() {
     initUserParams();
 //    initUserParams();
     printf("hi %i\n", getpid());
-termCond =1;
+    termCond =1;
     int checkTerm = 3;
-while(termCond) {
-    sendMsg();
-    checkMsg();
-    if (!checkTerm--){
-        termCond = terminateMaybe();
-        checkTerm = 2;
+    while(termCond) {
+        sendMsg();
+        checkMsg();
+        if (!checkTerm--){
+            termCond = terminateMaybe();
+            checkTerm = 2;
+        }
+
+
     }
-
-
-}
     printf("bye %i - %i\n", myPid, virtualPid);
     exit(19);
 }
@@ -157,11 +157,11 @@ static void communication(){
 }
 
 static void checkMsg() {
-    MsgQue * msg = &msgQue[virtualPid];
+    MsgQue * msg = &msgQue[ virtualPid ];
     int pageValid = 0;
-    while(!pageValid)
+    while( !pageValid )
         if( !sem_trywait( sem[ virtualPid ] ) ) {
- //           printf("c - enter crit to check\n");
+            //           printf("c - enter crit to check\n");
 
             char buf[ BUFF_sz ];
             memset( buf, 0, BUFF_sz );
@@ -171,14 +171,14 @@ static void checkMsg() {
                 strncpy( buf, msg->mail.buf, ( BUFF_sz - 1 ) );
 
                 msg->mail.hasBeenRead = true;
-
+                pageValid = 1;
 
             }
             if ( strlen( buf ) )
                 printf("child: Received message: %s\n", buf);
-            //  printf("c %i - done waiting  \n", getpid());
-            pageValid=1;
+     //       printf("c %i - done waiting  \n", getpid());
             sem_post( sem[ virtualPid ] );
+            usleep(5000);
         }
 
 //    printf("c - leave crit to get\n");
@@ -193,24 +193,26 @@ static void sendMsg() {
     int sent = 0;
     while( !sent )
         if( !sem_trywait( sem[ virtualPid ] ) ) {
-            printf("c - enter crit to send\n");
+            //  printf("c - enter crit to send\n");
 
-            int request = rand()%30;
-            int rw = rand()%2;
+            int request = rand()%32;
+            int rw = rand()%2; // 1->dirty
             char buf[BUFF_sz - 1];
             memset(buf, 0, BUFF_sz - 1);
 
             sprintf(buf, "%i %i", request, rw);
 
-            msgQue[virtualPid].mail.hasBeenRead = false;
-            msgQue[virtualPid].mail.toFrom = child; //sending
-            strncpy(msgQue[virtualPid].mail.buf, buf, (BUFF_sz));
+            memset(msg->mail.buf, 0, BUFF_sz );
+            msg->mail.hasBeenRead = false;
+            msg->mail.toFrom = child; //sending
+            strncpy(msg->mail.buf, buf, BUFF_sz );
+            printf("c %i - sent: %s \n", myPid,buf);
 
-            sent=1;
+            sent = 1;
             sem_post( sem[ virtualPid ] );
         }
 
-    printf("c - leave crit to send\n");
+    //  printf("c - leave crit to send\n");
 //leave critical
 
 }

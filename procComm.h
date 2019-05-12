@@ -43,7 +43,6 @@ typedef struct {
     int present;
 }Page;
 typedef struct {
-    int size;
     Page pages[BUFF_sz];
     int frames[BUFF_sz];
 }PageTable;
@@ -58,7 +57,7 @@ enum mailBox{
     parent = 'p',
     child = 'c',
     true = 1,
-    false =0
+    false = 0
 };
 
 #define BUFF_msgque sizeof( MsgQue )

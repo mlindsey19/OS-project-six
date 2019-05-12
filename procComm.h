@@ -86,7 +86,24 @@ enum mailBox{
 #define SEM_16 "/sem_16"
 #define SEM_17 "/sem_17"
 
-
+#define SEM2_0 "/sem2_0"
+#define SEM2_1 "/sem2_1"
+#define SEM2_2 "/sem2_2"
+#define SEM2_3 "/sem2_3"
+#define SEM2_4 "/sem2_4"
+#define SEM2_5 "/sem2_5"
+#define SEM2_6 "/sem2_6"
+#define SEM2_7 "/sem2_7"
+#define SEM2_8 "/sem2_8"
+#define SEM2_9 "/sem2_9"
+#define SEM2_10 "/sem2_10"
+#define SEM2_11 "/sem2_11"
+#define SEM2_12 "/sem2_12"
+#define SEM2_13 "/sem2_13"
+#define SEM2_14 "/sem2_14"
+#define SEM2_15 "/sem2_15"
+#define SEM2_16 "/sem2_16"
+#define SEM2_17 "/sem2_17"
 
 
 
@@ -108,7 +125,6 @@ void deleteSem() ;
 
 
 
-sem_t * openSem();
 sem_t * openSem_0();
 sem_t * openSem_1();
 sem_t * openSem_2();
@@ -127,5 +143,24 @@ sem_t * openSem_14();
 sem_t * openSem_15();
 sem_t * openSem_16();
 sem_t * openSem_17();
+
+sem_t * openSem2_0();
+sem_t * openSem2_1();
+sem_t * openSem2_2();
+sem_t * openSem2_3();
+sem_t * openSem2_4();
+sem_t * openSem2_5();
+sem_t * openSem2_6();
+sem_t * openSem2_7();
+sem_t * openSem2_8();
+sem_t * openSem2_9();
+sem_t * openSem2_10();
+sem_t * openSem2_11();
+sem_t * openSem2_12();
+sem_t * openSem2_13();
+sem_t * openSem2_14();
+sem_t * openSem2_15();
+sem_t * openSem2_16();
+sem_t * openSem2_17();
 
 #endif //PROJECT_FIVE_PROCCOMM_H

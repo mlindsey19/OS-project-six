@@ -116,6 +116,79 @@ sem_t * openSem_17(){
     return sem;
 }
 
+sem_t * openSem2_0() {
+    sem_t * sem = sem_open(SEM2_0, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_1() {
+    sem_t * sem = sem_open(SEM2_1, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_2() {
+    sem_t * sem = sem_open(SEM2_2, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_3() {
+    sem_t * sem = sem_open(SEM2_3, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_4() {
+    sem_t * sem = sem_open(SEM2_4, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_5() {
+    sem_t * sem = sem_open(SEM2_5, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_6() {
+    sem_t * sem = sem_open(SEM2_6, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_7() {
+    sem_t * sem = sem_open(SEM2_7, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_8() {
+    sem_t * sem = sem_open(SEM2_8, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_9() {
+    sem_t * sem = sem_open(SEM2_9, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_10(){
+    sem_t * sem = sem_open(SEM2_10, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_11(){
+    sem_t * sem = sem_open(SEM2_11, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_12(){
+    sem_t * sem = sem_open(SEM2_12, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_13(){
+    sem_t * sem = sem_open(SEM2_13, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_14(){
+    sem_t * sem = sem_open(SEM2_14, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_15(){
+    sem_t * sem = sem_open(SEM2_15, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_16(){
+    sem_t * sem = sem_open(SEM2_16, O_CREAT, PERM, 0);
+    return sem;
+}
+sem_t * openSem2_17(){
+    sem_t * sem = sem_open(SEM2_17, O_CREAT, PERM, 0);
+    return sem;
+}
+
 
 char * getClockMem(){
     key_t shmkey;

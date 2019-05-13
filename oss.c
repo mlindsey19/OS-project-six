@@ -9,18 +9,17 @@
 
 
 static void sigHandle(int);
-static void childHandle(int);
 //static void createResources();
 //static void giveResources();
 //static void deadlock();
 
 static pid_t pids[ PLIMIT ];
-static int processLimit = 18;
-static int activeLimit = 18;
+static int processLimit = 12;
+static int activeLimit = 6;
 static int active = 0;
 static int total = 0;
 static int maxTimeBetweenNewProcsSecs = 0;
-static int maxTimeBetweenNewProcsNS = 100000;
+static int maxTimeBetweenNewProcsNS = 1000;
 static void cleanSHM();
 static void childrenStatus();
 static void increment();
@@ -47,7 +46,6 @@ static MsgQue * msgQue;
 static sem_t * sem[PLIMIT];
 static sem_t * sem2[PLIMIT];
 static void initVars();
-static void sendMSG(  int );
 
 //table
 #define TABLESZ 256
@@ -73,7 +71,7 @@ int main() {
     //   signal( SIGCHLD, childHandle );
     signal( SIGALRM, sigHandle );
     // ualarm(900000,0);
-    alarm(10);
+    alarm(100);
     communication();
     initVars();
 
@@ -232,7 +230,7 @@ static void frameCheck( char * buf, int idx ){
     sscanf(buf,"%i %i", &page, &rw);
 
     if (page<0){
-        freeFrames();
+        freeFrames(idx);
         return;
     }
     PageTable * pTab = &pageTable[idx];
@@ -248,7 +246,7 @@ static void frameCheck( char * buf, int idx ){
     } else {
 
 
-        printf("Page fault   ------    -----   -----\n");
+     //   printf("Page fault   ------    -----   -----\n");
         // find unoccupied
         int i,o;
         for (i = o = 0; i < TABLESZ; i++) {
@@ -269,13 +267,12 @@ static void frameCheck( char * buf, int idx ){
 
         if(!o){
             i = findOldest();
-            if (frameTable[i].dirty =true){
+            if (frameTable[i].dirty ==true){
                 incre(0); //+1500 write to disk
             }
             frameTable[i].occupied = true;
             frameTable[i].refByte += 128;
             incre(0);// get from disk
-
 
             sem_post( sem2[ idx ] );
         }
@@ -312,7 +309,7 @@ static void checkMSG(){
                 msg->mail.hasBeenRead = true;
                 aRequest = 1;
 
-                printf("parent: Received message: %s - %i\n", buf, pid);
+             //   printf("parent: Received message: %s - %i\n", buf, pid);
             }
             sem_post( sem[ i ] );
             //         printf("p - leave crit after check\n");
@@ -333,9 +330,7 @@ static void checkMSG(){
 static void sigHandle( int cc ){
     cleanSHM();
 }
-static void childHandle( int cc ){
-    childrenStatus();
-}
+
 
 static void deleteMemory() {
     childrenStatus();

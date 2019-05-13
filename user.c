@@ -11,7 +11,7 @@
 //static void getMSG();
 //static void sendMSG( int );
 static void initUserParams();
-static void sendMsg();
+static void sendMsg( int );
 
 static int terminateMaybe();
 
@@ -34,7 +34,6 @@ static SimClock * simClock;
 static PCB * pcb;
 static int virtualPid;
 static int myPid;
-static void checkMsg();
 
 
 static sem_t * sem[PLIMIT];
@@ -74,10 +73,10 @@ int main() {
     initUserParams();
     printf("hi %i\n", getpid());
     termCond =1;
-    int checkTerm = 1000;
+    int checkTerm = 2000;
     while( termCond ) {
         usleep(10);
-        sendMsg();
+        sendMsg(0);
         checkTime();
         sem_wait( sem2[ virtualPid ] );
         addTime();
@@ -90,11 +89,12 @@ int main() {
 
     }
     printf("bye %i - %i\n", myPid, virtualPid);
+    sendMsg(1);
     int acTime,x,y;
     x = accessTime.sec * (BILLION / numberOfReq);
     y = accessTime.ns / numberOfReq;
     acTime = x + y ;
-    printf("-- %i - %i \n", acTime, numberOfReq);
+    printf("-- avdgaccess time: %ins - %i \n", acTime, numberOfReq);
 
     exit(19);
 }
@@ -234,7 +234,7 @@ static void sendMsg( int fl) {
             msg->mail.hasBeenRead = false;
             msg->mail.toFrom = child; //sending
             strncpy(msg->mail.buf, buf, BUFF_sz );
-            printf("c %i - sent: %s \n", myPid,buf);
+       //     printf("c %i - sent: %s \n", myPid,buf);
 
             sent = 1;
             sem_post( sem[ virtualPid ] );

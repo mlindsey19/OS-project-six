@@ -20,7 +20,7 @@ static int activeLimit = 18;
 static int active = 0;
 static int total = 0;
 static int maxTimeBetweenNewProcsSecs = 0;
-static int maxTimeBetweenNewProcsNS = 100;
+static int maxTimeBetweenNewProcsNS = 100000;
 static void cleanSHM();
 static void childrenStatus();
 static void increment();
@@ -103,7 +103,15 @@ int main() {
     cleanSHM();
     return 0;
 }
-
+static void incre(int fl){
+int x = fl ? 10:1500 ;
+    simClock->ns += x;
+    if (simClock->ns > BILLION ){
+        simClock->sec++;
+        simClock->ns -= BILLION;
+        assert( simClock->ns <= BILLION && "too many nanoseconds");
+    }
+}
 
 static void initVars(){
     simClock->sec = 0;
@@ -196,33 +204,17 @@ static int getIndexFromPid(int pid){
             return i;
     return 0;
 }
-static void sendMSG( int pidIndex ) {
-    //enter critical
-    pid_t pid = pids[ pidIndex ];
-    int trySend = 50;
-    while (trySend--) {
-        if (pid) {
-            if ( !sem_trywait( sem[ pidIndex ] ) ) {
-                //       printf("p    -    enter crit to send to %i\n", pid);
 
-                char buf[BUFF_sz - 1];
-                memset(buf, 0, BUFF_sz - 1);
-
-                sprintf(buf, "%i", 1);
-
-                msgQue[ pidIndex ].mail.hasBeenRead = false;
-                msgQue[ pidIndex ].mail.toFrom = parent; //sending
-                strncpy( msgQue[ pidIndex ].mail.buf, buf, BUFF_sz );
-                trySend = 0;
-                sem_post( sem[ pidIndex ] );
-
-                //leave critical
-                printf("Parent: Send message...%s :%i \n", buf, pid);
-            }
+static void freeFrames(int idx){
+    int i;
+    for( i=0; i<32; i++ ) {
+        if( pageTable[idx].frames[i] <= 0 )
+            frameTable[ pageTable[idx].frames[i] ].occupied = false;
+        if( frameTable[ pageTable[idx].frames[i] ].dirty  == true){
+            incre(0);
         }
     }
 }
-
 static int findOldest(){
     int i, mi;
     int min = frameTable[0].refByte;
@@ -239,6 +231,10 @@ static void frameCheck( char * buf, int idx ){
     int page, rw;
     sscanf(buf,"%i %i", &page, &rw);
 
+    if (page<0){
+        freeFrames();
+        return;
+    }
     PageTable * pTab = &pageTable[idx];
     Page * pg = &pageTable[idx].pages[page];
     int * fr = &pTab->frames[page];
@@ -246,6 +242,8 @@ static void frameCheck( char * buf, int idx ){
     if( pg->present == true){
         frameTable[ *fr ].refByte += 128;
         pg->dirty = ( rw ) ? 1 : pg->dirty;
+        incre(1); // +10ns
+
         sem_post( sem2[ idx ] );
     } else {
 
@@ -262,7 +260,7 @@ static void frameCheck( char * buf, int idx ){
                 *fr = i;
                 o = 1;
 
-                // sendMSG( idx );
+                incre(0); // add time to get from disk
                 sem_post( sem2[ idx ] );
 
                 break;
@@ -271,8 +269,14 @@ static void frameCheck( char * buf, int idx ){
 
         if(!o){
             i = findOldest();
+            if (frameTable[i].dirty =true){
+                incre(0); //+1500 write to disk
+            }
             frameTable[i].occupied = true;
             frameTable[i].refByte += 128;
+            incre(0);// get from disk
+
+
             sem_post( sem2[ idx ] );
         }
 
@@ -350,8 +354,6 @@ static void increment(){
         simClock->ns -= BILLION;
         assert( simClock->ns <= BILLION && "too many nanoseconds");
     }
-
-
 }
 
 void cleanSHM(){

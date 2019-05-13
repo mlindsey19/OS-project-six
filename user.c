@@ -42,6 +42,14 @@ static sem_t * sem2[PLIMIT];
 
 int termCond;
 
+//time stuff
+SimClock reqTime;
+SimClock accessTime;
+int numberOfReq = 0;
+static void checkTime();
+static void addTime();
+
+
 
 //// resource vectors
 //static int maxRequestVector[ 20 ];
@@ -70,18 +78,44 @@ int main() {
     while( termCond ) {
         usleep(10);
         sendMsg();
+        checkTime();
         sem_wait( sem2[ virtualPid ] );
+        addTime();
         // checkMsg();
         if (!checkTerm--){
             termCond = terminateMaybe();
-            checkTerm = 50;
+            checkTerm = 500;
         }
 
 
     }
     printf("bye %i - %i\n", myPid, virtualPid);
+    int acTime,x,y;
+    x = accessTime.sec * (BILLION / numberOfReq);
+    y = accessTime.ns / numberOfReq;
+    acTime = x + y ;
+    printf("-- %i - %i \n", acTime, numberOfReq);
+
     exit(19);
 }
+
+static void checkTime(){
+    reqTime.sec = simClock->sec;
+    reqTime.ns = simClock->ns ;
+
+}
+static void addTime(){
+    accessTime.sec += simClock->sec - reqTime.sec;
+    accessTime.ns += simClock->ns - reqTime.ns;
+
+    if (accessTime.ns > BILLION ){
+        accessTime.sec++;
+        accessTime.ns -= BILLION;
+        assert( accessTime.ns <= BILLION && "too many nanoseconds");
+    }
+    numberOfReq++;
+}
+
 static void initUserParams(){
     myPid = getpid();
 
@@ -177,36 +211,7 @@ static void communication(){
 //    sigaddset(&sigset, SIGUSR2);
 }
 
-static void checkMsg() {
-    MsgQue * msg = &msgQue[ virtualPid ];
-    int pageValid = 0;
-    while( !pageValid )
-        if( !sem_trywait( sem[ virtualPid ] ) ) {
-            //           printf("c - enter crit to check\n");
-
-            char buf[ BUFF_sz ];
-            memset( buf, 0, BUFF_sz );
-
-            if ( msg->mail.toFrom == parent && msg->mail.hasBeenRead == false) {
-
-                strncpy( buf, msg->mail.buf, ( BUFF_sz - 1 ) );
-
-                msg->mail.hasBeenRead = true;
-                pageValid = 1;
-
-            }
-            if ( strlen( buf ) )
-                printf("child: Received message: %s\n", buf);
-     //       printf("c %i - done waiting  \n", getpid());
-            sem_post( sem[ virtualPid ] );
-           // usleep(5000);
-        }
-
-//    printf("c - leave crit to get\n");
-//leave critical
-
-}
-static void sendMsg() {
+static void sendMsg( int fl) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     srand( (time_t ) ts.tv_nsec ^ getpid()  );
@@ -220,6 +225,8 @@ static void sendMsg() {
             int rw = rand()%2; // 1->dirty
             char buf[BUFF_sz - 1];
             memset(buf, 0, BUFF_sz - 1);
+            if( fl )
+                request = -1;
 
             sprintf(buf, "%i %i", request, rw);
 
